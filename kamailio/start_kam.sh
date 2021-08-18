@@ -1,9 +1,4 @@
 #!/bin/bash
-
-SHM_MEMORY=64
-PKG_MEMORY=8
-USER=kamailio
-GROUP=kamailio
-CFGFILE=/etc/kamailio/kamailio.cfg
-
-/usr/sbin/kamailio -P /var/run/kamailio/kamailio.pid -f $CFGFILE -m $SHM_MEMORY -M $PKG_MEMORY -u $USER -g $GROUP -DD -E
+rm -rf /etc/kamailio
+git clone https://github.com/davidcsi/voip-full-k8s-sip-proxy.git /etc/kamailio
+cd /etc/kamailio/ && bash initialize.sh

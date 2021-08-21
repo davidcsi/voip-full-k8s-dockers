@@ -1,55 +1,41 @@
-FROM alpine:3.11
-LABEL Maintainer="Tim de Pater <code@trafex.nl>" \
-      Description="Lightweight container with Nginx 1.16 & PHP-FPM 7.3 based on Alpine Linux."
+FROM debian:10-slim
+LABEL Maintainer="David Villasmil (david.villasmil.work@gmail.com)" \
+      Description="Simple nginx+php server"
 
 # Install packages
-RUN apk --no-cache add php7 php7-fpm php7-mysqli php7-json php7-openssl php7-curl \
-    php7-zlib php7-xml php7-phar php7-intl php7-dom php7-xmlreader php7-ctype php7-session \
-    php7-mbstring php7-gd nginx supervisor curl php7-xml php7-simplexml
-
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/bin --filename=composer 
-# php7-dom --repository http://nl.alpinelinux.org/alpine/edge/testing/
+RUN apt-get update && apt-get -y install nginx php php-cli php-fpm procps supervisor curl vim-tiny unzip git
 
 # Configure nginx
-COPY config/nginx.conf /etc/nginx/nginx.conf
-# Remove default server definition
-RUN rm /etc/nginx/conf.d/default.conf
+COPY config/nginx-default.conf /etc/nginx/sites-enabled/default
+COPY ./config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-WORKDIR /var/www/html
-#RUN composer require aws/aws-sdk-php
+# Get and install consul
+WORKDIR /root
+RUN curl https://releases.hashicorp.com/consul/1.10.1/consul_1.10.1_linux_amd64.zip -o /tmp/consul.zip
+RUN unzip /tmp/consul.zip
+RUN install consul /usr/bin/consul
+RUN addgroup --system consul
+RUN adduser --system --home /var/consul --shell /sbin/nologin --group consul --gecos consul --disabled-password
+RUN if [[ ! -d /etc/consul.d ]]; then mkdir /etc/consul.d; fi
+RUN if [[ ! -d /opt/consul ]]; then mkdir /opt/consul; fi
 
-
-# Configure PHP-FPM
-COPY config/fpm-pool.conf /etc/php7/php-fpm.d/www.conf
-COPY config/php.ini /etc/php7/conf.d/custom.ini
+# Copy config files
+COPY ./config-server-consul-server.json /etc/consul.d/config-server-consul-server.json
+COPY ./start_consul_agent.sh /start_consul_agent.sh
+COPY ./consul.hcl /etc/consul.d/consul.hcl
+COPY ./start_nginx.sh /start_nginx.sh
+COPY ./config/www.conf /etc/php/7.3/fpm/pool.d/www.conf
 
 # Configure supervisord
+RUN if [[ ! -d /etc/supervisor/conf.d ]]; then mkdir -p /etc/supervisor/conf.d; fi
+RUN if [[ ! -d /var/log/supervisor ]]; then mkdir /var/log/supervisor; fi
+COPY config/supervisord-service.conf /etc/supervisord.conf
 COPY config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-
-# Setup document root
-RUN mkdir -p /var/www/html
-
-# Make sure files/folders needed by the processes are accessable when they run under the nobody user
-RUN chown -R nobody.nobody /var/www/html && \
-  chown -R nobody.nobody /run && \
-  chown -R nobody.nobody /var/lib/nginx && \
-  chown -R nobody.nobody /var/log/nginx
-
-# Make the document root a volume
-VOLUME /var/www/html
-
-# Switch to use a non-root user from here on
-USER nobody
-
-# Add application
-WORKDIR /var/www/html
-COPY --chown=nobody src/ /var/www/html/
-
 # Expose the port nginx is reachable on
 EXPOSE 8080
 
 # Let supervisord start nginx & php-fpm
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+CMD ["supervisord", "--configuration", "/etc/supervisord.conf"]
 
 # Configure a healthcheck to validate that everything is up&running
 HEALTHCHECK --timeout=10s CMD curl --silent --fail http://127.0.0.1:8080/fpm-ping

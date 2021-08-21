@@ -28,7 +28,15 @@ RUN curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add -
 RUN apt-get update && apt-get install -y software-properties-common apt-transport-https
 RUN apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
 
-RUN apt-get update && apt-get install -y git sipsak consul supervisor vim-tiny kamailio kamailio-extra-modules kamailio-mysql-modules kamailio-websocket-modules kamailio-utils-modules kamailio-tls-modules kamailio-xml-modules procps net-tools sngrep traceroute --assume-yes 
+RUN apt-get update && apt-get install -y git sipsak supervisor vim-tiny kamailio kamailio-extra-modules kamailio-mysql-modules kamailio-websocket-modules kamailio-utils-modules kamailio-tls-modules kamailio-xml-modules procps net-tools sngrep traceroute --assume-yes 
+
+# Download and install specific version
+RUN groupadd --system consul
+RUN useradd -s /sbin/nologin --system -g consul consul
+RUN curl https://releases.hashicorp.com/consul/1.10.1/consul_1.10.1_linux_amd64.zip -o consul_1.10.1_linux_amd64.zip
+RUN unzip consul_1.10.1_linux_amd64.zip
+RUN chmod +x consul
+RUN mv consul /usr/bin/consul
 
 WORKDIR /root
 RUN curl -O https://releases.hashicorp.com/consul-template/0.19.5/consul-template_0.19.5_linux_amd64.tgz

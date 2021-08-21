@@ -5,7 +5,7 @@
             "sip-b2bua",
             "voice-infra"
         ],
-        "port": 5060,
+        "port": 5080,
         "check": {
             "id": "sip-health",
             "name": "SIP Health Check",
